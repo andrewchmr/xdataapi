@@ -1,0 +1,730 @@
+openapi: 3.1.0
+info:
+  title: xdataapi.io API
+  version: 0.3.0
+  description: |
+    Read-only X (Twitter) data API. One credit is one tweet or one profile returned.
+    Empty results and failed requests cost nothing. Every response carries
+    `credits_charged`, `balance_remaining`, `cache` and `request_id`.
+
+    Batch reads: `/v1/users/batch` and `/v1/tweets/batch` take up to 100 handles or ids per call.
+    MCP: the same data is served to agents at `https://api.xdataapi.io/mcp` (Streamable HTTP, same key).
+    Docs for agents: `https://xdataapi.io/llms.txt`.
+
+    ## Versioning and deprecation
+
+    The major version is in the path: every endpoint begins `/v1/`. Inside a major
+    version we only add — new endpoints, new optional parameters, new fields on an
+    object. Adding a field is not a breaking change, so parse defensively and ignore
+    what you do not know.
+
+    A change that would break a caller opens `/v2/` instead. When that happens `/v1/`
+    keeps answering for **at least 12 months**, and every `/v1/` response carries the
+    notice for the whole of that period:
+
+    - `Deprecation: <HTTP-date>` — when the version was declared deprecated (RFC 9745).
+    - `Sunset: <HTTP-date>` — the earliest date it may stop answering (RFC 8594).
+    - `Link: <https://xdataapi.io/docs/versioning>; rel="deprecation"` — what changed
+      and how to move.
+
+    No header, no sunset: absence of `Sunset` on a response is the promise that this
+    version is not going away inside the notice period. Nothing is ever removed from
+    `/v1/` without it.
+
+    ## Rate limits
+
+    Every `/v1/` response carries `RateLimit` and `RateLimit-Policy` (RFC 9331), on a
+    refusal as much as on a success, so a client can throttle without first being
+    refused. A `429` also carries `Retry-After` in whole seconds. The limit is per
+    account, not per key, and rises with the total paid: 1 request per second before
+    the first pack, 20 from it, up to 200.
+
+    The keyless endpoints — `GET /`, `/status`, `/healthz` and `/openapi.yaml` — carry
+    the same two headers under a separate policy named `public`: 10 requests per second
+    per address. That is far above any real caller and exists to stop a loop, not to
+    ration a public document.
+
+    ## Errors
+
+    Every failure is one shape, documented as `Error` below: an `error` object with a
+    stable machine-readable `code`, a human-readable `message`, and the `request_id`
+    to quote in support. The same body is served as `application/problem+json`
+    (RFC 9457) to callers that ask for it, with `type`, `title`, `status` and
+    `detail` alongside the same fields. Failed requests are never charged.
+  termsOfService: https://xdataapi.io/terms
+  contact:
+    name: xdataapi.io
+    url: https://xdataapi.io
+    email: hello@xdataapi.io
+externalDocs:
+  description: Guides and quickstart
+  url: https://xdataapi.io/docs
+servers:
+  - url: https://api.xdataapi.io
+security:
+  - ApiKey: []
+  - OAuth2: [read]
+components:
+  securitySchemes:
+    ApiKey:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: |
+        Your key from https://xdataapi.io/dashboard. Grants the `read` scope and nothing else.
+    OAuth2:
+      type: oauth2
+      description: |
+        For a hosted client that cannot be handed a key: it registers itself (RFC 7591),
+        sends the person through a consent screen, and exchanges a PKCE-bound code.
+        Discovery starts at https://api.xdataapi.io/.well-known/oauth-protected-resource.
+        The credential it receives is an ordinary API key on the approving account.
+      flows:
+        authorizationCode:
+          authorizationUrl: https://xdataapi.io/oauth/authorize
+          tokenUrl: https://xdataapi.io/api/oauth/token
+          refreshUrl: https://xdataapi.io/api/oauth/token
+          scopes:
+            read: |
+              Read public X data: profiles, tweets, timelines, threads, replies, quotes,
+              retweeters, followers, following and search. This is the only scope the API
+              has, because there is no write path in the product: no posting, no direct
+              messages, no mutation of anything on X.
+  parameters:
+    cursor:
+      name: cursor
+      in: query
+      schema: { type: string }
+      description: |
+        Opaque cursor from `next_cursor` of the previous page. Pages hold exactly `count` items while
+        there are that many; you pay for the items you receive. No `next_cursor` means the end.
+    fresh:
+      name: fresh
+      in: query
+      schema: { type: boolean, default: false }
+      description: Bypass the cache. Costs 2x credits.
+  schemas:
+    User:
+      type: object
+      required: [id, handle, name, followers, following, tweets, created_at]
+      properties:
+        id: { type: string, example: "783214" }
+        handle: { type: string, example: "X" }
+        name: { type: string }
+        bio: { type: string }
+        location: { type: string }
+        url: { type: string }
+        avatar_url: { type: string }
+        banner_url: { type: string }
+        verified: { type: boolean }
+        protected: { type: boolean }
+        followers: { type: integer }
+        following: { type: integer }
+        tweets: { type: integer }
+        likes: { type: integer }
+        listed: { type: integer }
+        created_at: { type: string, format: date-time }
+        pinned_tweet_ids: { type: array, items: { type: string } }
+    Media:
+      type: object
+      properties:
+        type: { type: string, enum: [photo, video, animated_gif] }
+        url: { type: string }
+        width: { type: integer }
+        height: { type: integer }
+    Tweet:
+      type: object
+      required: [id, text, created_at, author_id]
+      properties:
+        id: { type: string, example: "20" }
+        text: { type: string }
+        lang: { type: string }
+        created_at: { type: string, format: date-time }
+        author_id: { type: string }
+        author: { $ref: "#/components/schemas/User" }
+        conversation_id: { type: string }
+        in_reply_to_id: { type: string }
+        in_reply_to_user_id: { type: string }
+        quoted_id: { type: string }
+        retweeted_id: { type: string }
+        replies: { type: integer }
+        retweets: { type: integer }
+        likes: { type: integer }
+        quotes: { type: integer }
+        bookmarks: { type: integer }
+        views: { type: integer }
+        media: { type: array, items: { $ref: "#/components/schemas/Media" } }
+        urls: { type: array, items: { type: string } }
+        hashtags: { type: array, items: { type: string } }
+        mentions: { type: array, items: { type: string } }
+        is_retweet: { type: boolean }
+        is_quote: { type: boolean }
+        is_reply: { type: boolean }
+        source: { type: string }
+    Meta:
+      type: object
+      required: [items, credits_charged, balance_remaining, cache, request_id]
+      properties:
+        items: { type: integer, description: Objects returned. }
+        credits_charged: { type: number, example: 20 }
+        balance_remaining: { type: number, example: 79980 }
+        cache: { type: string, enum: [miss, hit, bypass] }
+        request_id: { type: string, format: uuid }
+        next_cursor: { type: string }
+    TweetPage:
+      allOf:
+        - $ref: "#/components/schemas/Meta"
+        - type: object
+          properties:
+            data: { type: array, items: { $ref: "#/components/schemas/Tweet" } }
+    UserPage:
+      allOf:
+        - $ref: "#/components/schemas/Meta"
+        - type: object
+          properties:
+            data: { type: array, items: { $ref: "#/components/schemas/User" } }
+    IdPage:
+      allOf:
+        - $ref: "#/components/schemas/Meta"
+        - type: object
+          properties:
+            data:
+              type: array
+              description: Numeric user ids as strings.
+              items: { type: string, example: "783214" }
+    TweetResponse:
+      allOf:
+        - $ref: "#/components/schemas/Meta"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/Tweet" }
+    UserResponse:
+      allOf:
+        - $ref: "#/components/schemas/Meta"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/User" }
+    BatchError:
+      type: object
+      required: [input, code, message]
+      properties:
+        input: { type: string, description: The handle or id as sent. }
+        code: { type: string, enum: [not_found, no_credits, access_denied, upstream_rate_limited, no_account, upstream_error, request_rejected, bad_request] }
+        message: { type: string }
+    BatchMeta:
+      type: object
+      required: [errors, items, credits_charged, balance_remaining, cache, cache_hits, request_id]
+      properties:
+        errors:
+          type: array
+          description: Inputs that returned nothing, with the reason. Never charged.
+          items: { $ref: "#/components/schemas/BatchError" }
+        items: { type: integer, description: Objects returned. }
+        credits_charged: { type: number }
+        balance_remaining: { type: number }
+        cache: { type: string, enum: [miss, hit, mixed, bypass] }
+        cache_hits: { type: integer, description: Objects served from cache, at half price. }
+        request_id: { type: string, format: uuid }
+    UserBatch:
+      allOf:
+        - $ref: "#/components/schemas/BatchMeta"
+        - type: object
+          properties:
+            data: { type: array, items: { $ref: "#/components/schemas/User" }, description: Found profiles, in input order. }
+    TweetBatch:
+      allOf:
+        - $ref: "#/components/schemas/BatchMeta"
+        - type: object
+          properties:
+            data: { type: array, items: { $ref: "#/components/schemas/Tweet" }, description: Found tweets, in input order. }
+    ErrorBody:
+      description: The failure itself. `code` is stable; match on it, never on `message`.
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum: [missing_key, invalid_key, rate_limited, no_credits, bad_request, not_found, access_denied, product_unavailable, billing_disabled,
+                 upstream_rate_limited, no_account, upstream_error, request_rejected, query_id_stale, internal]
+        message: { type: string }
+    Error:
+      description: |
+        Every failure from this API, in one shape. Charged nothing, always carries a
+        `request_id`. The same failure is available as RFC 9457 `application/problem+json`
+        to callers that ask for it.
+      type: object
+      required: [error, request_id]
+      properties:
+        error: { $ref: "#/components/schemas/ErrorBody" }
+        request_id: { type: string }
+    Problem:
+      description: |
+        RFC 9457 view of the same failure, served when the caller sends
+        `Accept: application/problem+json`. Nothing new is reported — `type`, `title`,
+        `status` and `detail` are the registered names for what `error.code` and
+        `error.message` already said, so a generic client can read a failure it has no
+        specific handling for.
+      type: object
+      required: [type, title, status, code, request_id]
+      properties:
+        type:
+          type: string
+          format: uri
+          description: A page describing this error code.
+          example: https://xdataapi.io/docs/errors#no_credits
+        title: { type: string, example: Balance is zero }
+        status: { type: integer, example: 402 }
+        detail: { type: string, description: The same text as `error.message`. }
+        code:
+          type: string
+          description: The same value as `error.code`. Stable; match on this, not on the text.
+        request_id: { type: string }
+        error:
+          description: The native error object, repeated so one parser reads both shapes.
+          $ref: "#/components/schemas/ErrorBody"
+  headers:
+    RateLimit:
+      description: |
+        RFC 9331 quota state for the account: `limit=<qps>, remaining=<whole requests>,
+        reset=<seconds until full>`. Present on every `/v1/` response that resolved a key.
+      schema: { type: string, example: "limit=20, remaining=19, reset=1" }
+    RateLimitPolicy:
+      description: |
+        RFC 9331 statement of the rule itself, independent of the moment. Present on every
+        `/v1/` response, including a 401, where it quotes the rate a new account starts on.
+      schema: { type: string, example: '"per-second"; q=20; w=1' }
+    RetryAfter:
+      description: Whole seconds to wait before retrying. Sent with 429 and 503.
+      schema: { type: integer, example: 1 }
+  responses:
+    Unauthorized:
+      description: Missing or invalid key. Free.
+      headers:
+        RateLimit-Policy: { $ref: "#/components/headers/RateLimitPolicy" }
+      content:
+        application/json: { schema: { $ref: "#/components/schemas/Error" } }
+        application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } }
+    PaymentRequired:
+      description: Balance is zero. Buy a pack. Free.
+      headers:
+        RateLimit: { $ref: "#/components/headers/RateLimit" }
+        RateLimit-Policy: { $ref: "#/components/headers/RateLimitPolicy" }
+      content:
+        application/json: { schema: { $ref: "#/components/schemas/Error" } }
+        application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } }
+    NotFound:
+      description: No such object, or it is private. Free.
+      headers:
+        RateLimit: { $ref: "#/components/headers/RateLimit" }
+        RateLimit-Policy: { $ref: "#/components/headers/RateLimitPolicy" }
+      content:
+        application/json: { schema: { $ref: "#/components/schemas/Error" } }
+        application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } }
+    BadRequest:
+      description: "The request itself is wrong: a bad parameter, cursor or body. Free."
+      headers:
+        RateLimit: { $ref: "#/components/headers/RateLimit" }
+        RateLimit-Policy: { $ref: "#/components/headers/RateLimitPolicy" }
+      content:
+        application/json: { schema: { $ref: "#/components/schemas/Error" } }
+        application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } }
+    Forbidden:
+      description: X denied this read to the current session (error 37). Free.
+      headers:
+        RateLimit: { $ref: "#/components/headers/RateLimit" }
+        RateLimit-Policy: { $ref: "#/components/headers/RateLimitPolicy" }
+      content:
+        application/json: { schema: { $ref: "#/components/schemas/Error" } }
+        application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } }
+    TooMany:
+      description: Per-account rate limit. Free. Retry after `Retry-After` seconds.
+      headers:
+        RateLimit: { $ref: "#/components/headers/RateLimit" }
+        RateLimit-Policy: { $ref: "#/components/headers/RateLimitPolicy" }
+        Retry-After: { $ref: "#/components/headers/RetryAfter" }
+      content:
+        application/json: { schema: { $ref: "#/components/schemas/Error" } }
+        application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } }
+    Upstream:
+      description: Upstream failure. Free. Retry after `Retry-After` seconds.
+      headers:
+        RateLimit: { $ref: "#/components/headers/RateLimit" }
+        RateLimit-Policy: { $ref: "#/components/headers/RateLimitPolicy" }
+        Retry-After: { $ref: "#/components/headers/RetryAfter" }
+      content:
+        application/json: { schema: { $ref: "#/components/schemas/Error" } }
+        application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } }
+    ServerError:
+      description: A fault on our side. Free. Quote `request_id` if it persists.
+      content:
+        application/json: { schema: { $ref: "#/components/schemas/Error" } }
+        application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } }
+tags:
+  - { name: users, description: Profiles, timelines, followers. }
+  - { name: tweets, description: Tweets, threads, replies, quotes, search. }
+  - { name: account, description: Your key and balance. }
+  - { name: billing, description: Credit packs and checkout. }
+paths:
+  /v1/me:
+    get:
+      operationId: getMe
+      tags: [account]
+      summary: Key, balance and rate limit
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customer_id: { type: string }
+                  key_prefix: { type: string }
+                  balance: { type: number }
+                  rate_limit_qps: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooMany" }
+        "500": { $ref: "#/components/responses/ServerError" }
+  /v1/billing/packs:
+    get:
+      operationId: listPacks
+      tags: [billing]
+      summary: Credit packs on sale
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name: { type: string, example: starter }
+                        usd: { type: integer, example: 10 }
+                        credits: { type: integer, example: 80000 }
+                        buyable: { type: boolean }
+                  rate_limits:
+                    description: |
+                      Requests per second by the total paid over the account's life. The limit only goes up.
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        paid_usd: { type: integer, example: 10 }
+                        requests_per_second: { type: integer, example: 20 }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooMany" }
+        "500": { $ref: "#/components/responses/ServerError" }
+  /v1/billing/checkout:
+    post:
+      operationId: createCheckout
+      tags: [billing]
+      summary: Buy a credit pack
+      description: |
+        Returns a Stripe Checkout URL. Open it in a browser; after payment the credits land in the wallet of the
+        key's account within seconds. The rate limit follows the total paid over the account's life and only
+        goes up (see `rate_limits` on `/v1/billing/packs`). Credits never expire.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pack]
+              properties:
+                pack: { type: string, enum: [starter, builder, growth, scale] }
+      responses:
+        "200":
+          description: Checkout URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url: { type: string, format: uri }
+                  pack: { type: string }
+                  usd: { type: integer }
+                  credits: { type: integer }
+                  request_id: { type: string }
+        "400": { $ref: "#/components/responses/BadRequest", description: Unknown pack. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooMany" }
+        "500": { $ref: "#/components/responses/ServerError" }
+        "503": { description: Card checkout not open yet., content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+  /v1/users/batch:
+    post:
+      operationId: getUsers
+      tags: [users]
+      summary: Profiles by handle, batch
+      description: |
+        Up to 100 profiles in one call. 1 credit per profile found; handles that do not exist are listed in
+        `errors` and cost nothing. Duplicates are folded. Results in input order. Also `GET /v1/users/batch?handles=a,b,c`.
+        When the balance covers only part of the list, the tail comes back as `no_credits` and is not fetched.
+      parameters:
+        - { $ref: "#/components/parameters/fresh" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [handles]
+              properties:
+                handles: { type: array, minItems: 1, maxItems: 100, items: { type: string }, example: [x, github, vercel] }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/UserBatch" } } } }
+        "400": { $ref: "#/components/responses/BadRequest", description: Bad list. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+        "429": { $ref: "#/components/responses/TooMany" }
+        "500": { $ref: "#/components/responses/ServerError" }
+        "503": { $ref: "#/components/responses/Upstream" }
+  /v1/users/{handle}:
+    get:
+      operationId: getUser
+      tags: [users]
+      summary: Profile by handle
+      description: 1 credit per profile.
+      parameters:
+        - { name: handle, in: path, required: true, schema: { type: string } }
+        - { $ref: "#/components/parameters/fresh" }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/UserResponse" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooMany" }
+        "500": { $ref: "#/components/responses/ServerError" }
+        "503": { $ref: "#/components/responses/Upstream" }
+  /v1/users/{user}/tweets:
+    get:
+      operationId: getUserTweets
+      tags: [users]
+      summary: Latest tweets of a user
+      description: 1 credit per tweet. `user` is a numeric id or a handle.
+      parameters:
+        - { name: user, in: path, required: true, schema: { type: string } }
+        - { name: count, in: query, schema: { type: integer, default: 20, maximum: 100 } }
+        - { $ref: "#/components/parameters/cursor" }
+        - { $ref: "#/components/parameters/fresh" }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/TweetPage" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooMany" }
+        "500": { $ref: "#/components/responses/ServerError" }
+        "503": { $ref: "#/components/responses/Upstream" }
+  /v1/users/{user}/followers:
+    get:
+      operationId: getFollowers
+      tags: [users]
+      summary: Followers of a user
+      description: |
+        0.1 credit per user returned. Up to 200 per page.
+        Availability depends on the reading session's trust level at X: some sessions get HTTP 403
+        `access_denied` (X error 37) for every follower list, including their own. Free when that happens.
+      parameters:
+        - { name: user, in: path, required: true, schema: { type: string } }
+        - { name: count, in: query, schema: { type: integer, default: 50, maximum: 200 } }
+        - { $ref: "#/components/parameters/cursor" }
+        - { $ref: "#/components/parameters/fresh" }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/UserPage" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooMany" }
+        "500": { $ref: "#/components/responses/ServerError" }
+        "503": { $ref: "#/components/responses/Upstream" }
+  /v1/users/{user}/followers/ids:
+    get:
+      operationId: getFollowerIds
+      tags: [users]
+      summary: Follower ids of a user
+      description: |
+        Numeric user ids only, no profiles. 0.02 credit per id. Up to 200 per page.
+        It is the same page `/followers` reads, so a page fetched through either endpoint is a cache
+        hit for the other, at half price. Same availability note as followers.
+      parameters:
+        - { name: user, in: path, required: true, schema: { type: string } }
+        - { name: count, in: query, schema: { type: integer, default: 200, maximum: 200 } }
+        - { $ref: "#/components/parameters/cursor" }
+        - { $ref: "#/components/parameters/fresh" }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/IdPage" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooMany" }
+        "500": { $ref: "#/components/responses/ServerError" }
+        "503": { $ref: "#/components/responses/Upstream" }
+  /v1/users/{user}/following:
+    get:
+      operationId: getFollowing
+      tags: [users]
+      summary: Accounts a user follows
+      description: 0.1 credit per user returned. Up to 200 per page. Same availability note as followers.
+      parameters:
+        - { name: user, in: path, required: true, schema: { type: string } }
+        - { name: count, in: query, schema: { type: integer, default: 50, maximum: 200 } }
+        - { $ref: "#/components/parameters/cursor" }
+        - { $ref: "#/components/parameters/fresh" }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/UserPage" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooMany" }
+        "500": { $ref: "#/components/responses/ServerError" }
+        "503": { $ref: "#/components/responses/Upstream" }
+  /v1/tweets/search:
+    get:
+      operationId: searchTweets
+      tags: [tweets]
+      summary: Advanced search
+      description: |
+        1 credit per tweet, or per profile with `product=People` (then `data` is a list of User).
+        `q` accepts X advanced search operators (from:, since:, until:, min_faves:, -filter:replies ...).
+        `product=Top` is not served to every reading session at X; when it is not, the response is HTTP 403
+        `product_unavailable` and nothing is charged. `Latest` is always available.
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string }, example: "from:x since:2026-09-01" }
+        - { name: product, in: query, schema: { type: string, enum: [Latest, Top, People, Photos, Videos], default: Latest } }
+        - { name: count, in: query, schema: { type: integer, default: 20, maximum: 50 } }
+        - { $ref: "#/components/parameters/cursor" }
+        - { $ref: "#/components/parameters/fresh" }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/TweetPage" } } } }
+        "400": { $ref: "#/components/responses/BadRequest", description: Bad query. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooMany" }
+        "500": { $ref: "#/components/responses/ServerError" }
+        "503": { $ref: "#/components/responses/Upstream" }
+  /v1/tweets/batch:
+    post:
+      operationId: getTweets
+      tags: [tweets]
+      summary: Tweets by id, batch
+      description: |
+        Up to 100 tweets in one call. 1 credit per tweet found; deleted or private tweets are listed in `errors`
+        and cost nothing. Results in input order. Also `GET /v1/tweets/batch?ids=20,21`.
+      parameters:
+        - { $ref: "#/components/parameters/fresh" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids: { type: array, minItems: 1, maxItems: 100, items: { type: string }, example: ["20", "1968000000000000000"] }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/TweetBatch" } } } }
+        "400": { $ref: "#/components/responses/BadRequest", description: Bad list. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+        "429": { $ref: "#/components/responses/TooMany" }
+        "500": { $ref: "#/components/responses/ServerError" }
+        "503": { $ref: "#/components/responses/Upstream" }
+  /v1/tweets/{id}:
+    get:
+      operationId: getTweet
+      tags: [tweets]
+      summary: Tweet by id
+      description: 1 credit.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { $ref: "#/components/parameters/fresh" }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/TweetResponse" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooMany" }
+        "500": { $ref: "#/components/responses/ServerError" }
+        "503": { $ref: "#/components/responses/Upstream" }
+  /v1/tweets/{id}/thread:
+    get:
+      operationId: getThread
+      tags: [tweets]
+      summary: Tweet with its thread and replies
+      description: 1 credit per tweet returned. The focal tweet comes first.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { $ref: "#/components/parameters/cursor" }
+        - { $ref: "#/components/parameters/fresh" }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/TweetPage" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooMany" }
+        "500": { $ref: "#/components/responses/ServerError" }
+        "503": { $ref: "#/components/responses/Upstream" }
+  /v1/tweets/{id}/replies:
+    get:
+      operationId: getReplies
+      tags: [tweets]
+      summary: Direct replies to a tweet
+      description: 1 credit per reply. Only replies to this tweet, not the thread above it or nested replies. Use `cursor` for more.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { $ref: "#/components/parameters/cursor" }
+        - { $ref: "#/components/parameters/fresh" }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/TweetPage" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooMany" }
+        "500": { $ref: "#/components/responses/ServerError" }
+        "503": { $ref: "#/components/responses/Upstream" }
+  /v1/tweets/{id}/quotes:
+    get:
+      operationId: getQuotes
+      tags: [tweets]
+      summary: Tweets that quote a tweet
+      description: 1 credit per tweet, newest first. Up to 50 per page.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: count, in: query, schema: { type: integer, default: 20, maximum: 50 } }
+        - { $ref: "#/components/parameters/cursor" }
+        - { $ref: "#/components/parameters/fresh" }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/TweetPage" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooMany" }
+        "500": { $ref: "#/components/responses/ServerError" }
+        "503": { $ref: "#/components/responses/Upstream" }
+  /v1/tweets/{id}/retweeters:
+    get:
+      operationId: getRetweeters
+      tags: [tweets]
+      summary: Accounts that retweeted a tweet
+      description: 0.5 credit per profile. Up to 200 per page. Not every reading session at X may read this; then the answer is 403 and free.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: count, in: query, schema: { type: integer, default: 50, maximum: 200 } }
+        - { $ref: "#/components/parameters/cursor" }
+        - { $ref: "#/components/parameters/fresh" }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/UserPage" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "402": { $ref: "#/components/responses/PaymentRequired" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooMany" }
+        "500": { $ref: "#/components/responses/ServerError" }
+        "503": { $ref: "#/components/responses/Upstream" }

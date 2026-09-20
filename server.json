@@ -1,0 +1,14 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.xdataapi/xdataapi",
+  "title": "xdataapi: X (Twitter) data",
+  "description": "Read-only public X (Twitter) data: profiles, tweets, threads, followers, search. Pay per result.",
+  "version": "0.3.0",
+  "websiteUrl": "https://xdataapi.io/docs/mcp",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://api.xdataapi.io/mcp"
+    }
+  ]
+}
