@@ -3,7 +3,7 @@
   "name": "io.xdataapi/xdataapi",
   "title": "xdataapi: X (Twitter) data",
   "description": "Read-only public X (Twitter) data: profiles, tweets, threads, followers, search. Pay per result.",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "websiteUrl": "https://xdataapi.io/docs/mcp",
   "remotes": [
     {
@@ -12,7 +12,7 @@
     }
   ],
   "repository": {
-    "url": "https://github.com/andrewchmr/xdataapi",
+    "url": "https://github.com/xdataapi/xdataapi",
     "source": "github"
   }
 }
