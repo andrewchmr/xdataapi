@@ -100,5 +100,3 @@ Live status, checked every minute from outside the network: [xdataapi.io/status]
 - Support: hello@xdataapi.io
 
 MIT licensed.
-
-STALE MARKER - the sync job should remove this line.
