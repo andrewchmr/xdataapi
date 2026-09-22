@@ -14,7 +14,14 @@ Not affiliated with X Corp. Public data only. No write endpoints.
 
 ## MCP
 
-Claude Code:
+Claude Code, as a plugin — the server plus a skill that teaches the search operators and the cost rules:
+
+```bash
+claude plugin marketplace add xdataapi/xdataapi
+claude plugin install xdataapi@xdataapi
+```
+
+Or the server on its own, in any MCP client:
 
 ```bash
 claude mcp add --transport http xdataapi https://api.xdataapi.io/mcp
@@ -79,7 +86,23 @@ client = AuthenticatedClient(base_url="https://api.xdataapi.io", token=KEY, pref
 page = search_tweets.sync(client=client, q="from:x", count=20)
 ```
 
-Both are generated from `openapi.yaml`. See [examples/](examples/) for LangChain, CrewAI, and Vercel AI SDK tools.
+Both are generated from `openapi.yaml`.
+
+## Framework packages
+
+Installable tools for agent frameworks. Each one carries the credit cost in every tool description, so
+the model can see what a plan costs before it runs it, and each takes a `max_results` cap so one agent
+step cannot empty the balance.
+
+| Package | Install | Source |
+|---|---|---|
+| LangChain and LangGraph | `pip install langchain-xdataapi` | [packages/langchain](packages/langchain) |
+| LlamaIndex | `pip install llama-index-tools-xdataapi` | [packages/llama-index](packages/llama-index) |
+| n8n | community node `n8n-nodes-xdataapi` | [packages/n8n](packages/n8n) |
+| Claude Code | `claude plugin install xdataapi@xdataapi` | [plugins/xdataapi](plugins/xdataapi) |
+
+For anything else, see [examples/](examples/): CrewAI, the Vercel AI SDK, and the OpenAI Agents SDK.
+An agent that speaks MCP needs none of them.
 
 ## Pricing
 

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "xdataapi": {
+      "type": "http",
+      "url": "https://api.xdataapi.io/mcp"
+    }
+  }
+}

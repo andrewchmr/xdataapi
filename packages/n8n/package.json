@@ -1,0 +1,59 @@
+{
+  "name": "n8n-nodes-xdataapi",
+  "version": "0.1.0",
+  "description": "n8n node for xdataapi.io: read-only public X (Twitter) profiles, posts, threads, followers and search",
+  "keywords": [
+    "n8n-community-node-package",
+    "n8n",
+    "twitter",
+    "x",
+    "twitter-api",
+    "x-api",
+    "social-media",
+    "xdataapi"
+  ],
+  "license": "MIT",
+  "homepage": "https://xdataapi.io",
+  "author": {
+    "name": "xdataapi.io",
+    "email": "hello@xdataapi.io"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xdataapi/xdataapi.git"
+  },
+  "bugs": {
+    "url": "https://github.com/xdataapi/xdataapi/issues"
+  },
+  "engines": {
+    "node": ">=20.15"
+  },
+  "scripts": {
+    "build": "tsc && node scripts/copy-icons.mjs",
+    "dev": "tsc --watch",
+    "lint": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "credentials": [
+      "dist/credentials/XdataapiApi.credentials.js"
+    ],
+    "nodes": [
+      "dist/nodes/Xdataapi/Xdataapi.node.js"
+    ]
+  },
+  "devDependencies": {
+    "n8n-workflow": "^1.82.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0"
+  },
+  "peerDependencies": {
+    "n8n-workflow": "*"
+  }
+}

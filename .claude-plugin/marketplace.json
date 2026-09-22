@@ -1,0 +1,24 @@
+{
+  "name": "xdataapi",
+  "description": "Read-only public X (Twitter) data for agents: profiles, posts, threads, followers and search.",
+  "owner": {
+    "name": "xdataapi.io",
+    "email": "hello@xdataapi.io",
+    "url": "https://xdataapi.io"
+  },
+  "plugins": [
+    {
+      "name": "xdataapi",
+      "source": "./plugins/xdataapi",
+      "displayName": "xdataapi",
+      "description": "Read public X (Twitter) data: profiles, posts, threads, replies, quotes, followers and search with the x.com operators. Hosted MCP server, OAuth sign-in, pay per result.",
+      "version": "0.1.0",
+      "category": "data",
+      "license": "MIT",
+      "homepage": "https://xdataapi.io/docs/mcp",
+      "repository": "https://github.com/xdataapi/xdataapi",
+      "author": { "name": "xdataapi.io", "email": "hello@xdataapi.io", "url": "https://xdataapi.io" },
+      "keywords": ["x", "twitter", "social", "search", "mcp", "research", "read-only"]
+    }
+  ]
+}
