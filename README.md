@@ -86,7 +86,12 @@ client = AuthenticatedClient(base_url="https://api.xdataapi.io", token=KEY, pref
 page = search_tweets.sync(client=client, q="from:x", count=20)
 ```
 
-Both are generated from `openapi.yaml`.
+The TypeScript client has **no runtime dependencies**; `npm install xdataapi` pulls one package.
+
+Both are generated from [openapi.yaml](openapi.yaml) by [sdk/generate.sh](sdk/generate.sh); the source
+is in [sdk/typescript](sdk/typescript) and [sdk/python](sdk/python). Nothing in them is hand-written
+except the small wrapper in `sdk/typescript/src/index.ts` and the READMEs, so an API change means
+regenerating rather than editing.
 
 ## Framework packages
 

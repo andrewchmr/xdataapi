@@ -1,0 +1,50 @@
+{
+  "name": "xdataapi",
+  "version": "0.3.2",
+  "description": "TypeScript client for the xdataapi.io API: read-only X (Twitter) profiles, tweets, threads, search.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "homepage": "https://xdataapi.io/docs/sdks",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xdataapi/xdataapi.git"
+  },
+  "keywords": [
+    "twitter",
+    "x",
+    "api",
+    "tweets",
+    "sdk",
+    "xdataapi",
+    "twitter-api",
+    "x-api",
+    "mcp",
+    "agent",
+    "llm"
+  ],
+  "bugs": {
+    "url": "https://github.com/xdataapi/xdataapi/issues"
+  },
+  "scripts": {
+    "generate": "openapi-ts",
+    "build": "tsc -p tsconfig.json",
+    "prepublishOnly": "pnpm generate && pnpm build"
+  },
+  "devDependencies": {
+    "@hey-api/openapi-ts": "0.99.0",
+    "typescript": "^5.9.0"
+  }
+}

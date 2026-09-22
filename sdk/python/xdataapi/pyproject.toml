@@ -1,0 +1,37 @@
+[tool.poetry]
+name = "xdataapi"
+version = "0.3.1"
+description = "Python client for the xdataapi.io API: read-only X (Twitter) profiles, tweets, threads, search."
+authors = []
+license = "MIT"
+readme = "README.md"
+homepage = "https://xdataapi.io/docs/sdks"
+repository = "https://github.com/xdataapi/xdataapi"
+documentation = "https://xdataapi.io/docs"
+keywords = ["twitter", "x", "api", "tweets", "sdk", "xdataapi", "twitter-api", "x-api", "mcp", "agent", "llm"]
+packages = [
+    { include = "xdataapi" },
+]
+include = ["xdataapi/py.typed"]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+httpx = ">=0.23.1,<0.29.0"
+attrs = ">=22.2.0"
+
+[tool.poetry.urls]
+Homepage = "https://xdataapi.io"
+Documentation = "https://xdataapi.io/docs"
+"API reference" = "https://xdataapi.io/reference"
+"Source code" = "https://github.com/xdataapi/xdataapi"
+"Issue tracker" = "https://github.com/xdataapi/xdataapi/issues"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["F", "I", "UP"]
