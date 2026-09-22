@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "LlamaIndex tool spec for xdataapi.io: read-only public X (Twitter) profiles, tweets, threads, followers and search."
 readme = "README.md"
 license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.9,<4.0"
 keywords = [
   "llama-index", "llamaindex", "llamahub", "agents", "tools", "twitter", "x",
@@ -12,7 +13,6 @@ keywords = [
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
